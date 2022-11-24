@@ -30,6 +30,7 @@
 		"database": "railway",
 		"host": "containers-us-west-112.railway.app",
 		"dialect": "mysql",
+		"port": 5833,
 		"query": {
 			"raw": true
 		},
