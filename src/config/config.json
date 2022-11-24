@@ -9,7 +9,13 @@
 		"query": {
 			"raw": true
 		},
-		"logging": false
+		"dialectOptions": {
+			"useUTC": false,
+			"ssl": {
+				"require": true,
+				"rejectUnauthorized": false
+			}
+		}
 	},
 	"test": {
 		"username": "root",
@@ -26,6 +32,13 @@
 		"dialect": "mysql",
 		"query": {
 			"raw": true
+		},
+		"dialectOptions": {
+			"useUTC": false,
+			"ssl": {
+				"require": true,
+				"rejectUnauthorized": false
+			}
 		}
 	}
 }
