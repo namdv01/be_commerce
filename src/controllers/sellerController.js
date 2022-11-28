@@ -1,4 +1,5 @@
 const { Transaction, Op } = require('sequelize');
+const { sequelize } = require('../config/connectDB');
 const db = require('../models/index');
 const RESPONSE = require('../schema/response');
 const image = require('../service/image');
@@ -265,6 +266,9 @@ const sellerController = {
     const listItemPromotion = await db.PromotionItem.findAll({
       where: {
         promotionId: idPromotion,
+        dayFinish: {
+          [Op.gte]: new Date(), 
+        }
       }
     });
     const newItem = listItemPromotion.filter((value) => {
@@ -313,19 +317,19 @@ const sellerController = {
   },
   async getListClientBuy(req, res) {
     // const 
-    const {idUser} = req.params;
     const result = await db.Order.findAll({
-      required: false,
-      where: {
-        userId: idUser,
-      },
+      // where: {
+      //   userId: idUser,
+      // },
       include: [
         {
           model: db.User,
           as: 'userData',
           target: ['fullname'],
         },
-      ]
+      ],
+      // group: 'userData.fullname',
+      attributes: [[sequelize.fn('count', sequelize.col('User.fullname')),'totalOrder']]
     });
     return res.status(200).send(RESPONSE('danh sách người dùng', 0, result))
   },

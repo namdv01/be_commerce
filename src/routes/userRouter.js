@@ -11,7 +11,7 @@ router.get('/profile', middleware.verifyToken, userController.getInfo);
 router.get('/search_product', userController.searchProduct);
 router.get('/detail_item/:idItem', userController.getDetailItem);
 router.post('/change_passowrd', middleware.verifyToken, userController.changePassword);
-router.get('/forget_passowrd', userController.forgetPassword);
+router.post('/forget_password', userController.forgetPassword);
 router.post('/confirm_password', userController.confirmPassword);
 router.post('/update_profile', middleware.verifyToken, userController.updateUser);
 router.get('/cart', middleware.verifyToken, middleware.verifyBuyer, userController.getCart);

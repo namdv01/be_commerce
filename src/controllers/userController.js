@@ -205,7 +205,7 @@ const userController = {
         return itemValue.map((image) => {
           return {
             ...image.dataValues,
-            image: `${req.headers.host}/public/img/${image.dataValues.image}`
+            image: `https://${req.headers.host}/public/${image.dataValues.image}`
           }
         });
       }
@@ -240,31 +240,44 @@ const userController = {
     return res.status(200).send(RESPONSE('Đổi mật khẩu thành công', 0));
   },
   async forgetPassword(req, res) {
-    const token = token.createToken({
-      email: req.userEmail,
-      id: req.userId,
-      position: req.userPosition,
+    // const token = token.createToken({
+    //   email: req.userEmail,
+    //   id: req.userId,
+    //   position: req.userPosition,
+    // });
+    const { email } = req.body;
+    const checkUser = await db.User.findOne({
+      where: {
+        email
+      }
     });
+    if (!checkUser) {
+      return res.status(200).send(RESPONSE('Không tồn tại email', -1));
+    }
+    const tokenV = token.createToken({
+      email,
+      id: checkUser.id,
+      position: checkUser.position,
+    })
     const checkTokenForget = await db.StoreToken.findOne({
       where: {
-        userId: req.userId,
+        userId: checkUser.id,
         type: 'forget'
       },
-      raw: true,
     });
 
     if (!checkTokenForget) {
       await db.StoreToken.create({
-        userId: req.userId,
-        token,
+        userId: checkUser.id,
+        token: tokenV,
         type: 'forget'
       });
     } else {
-      checkTokenForget.token = token;
+      checkTokenForget.token = tokenV;
       await checkTokenForget.save();
     }
 
-    sendMail(req.userEmail, 'Xác nhận quên mật khẩu', '', `<a href='${req.headers.origin}/confirm_passowrd?email=${req.userEmail}&code=${token}'>Tại đây</a>`);
+    sendMail(email, 'Xác nhận quên mật khẩu', '', `<a href='${req.headers.origin}/confirm_password?email=${email}&code=${tokenV}'>Tại đây</a>`);
     return res.status(200).send(RESPONSE('Xác nhận trong email', 0));
   },
   async confirmPassword(req, res) {
@@ -273,10 +286,11 @@ const userController = {
       const { email, code } = req.query;
       const { newPassword } = req.body;
       const payload = token.verifyToken(code);
+      console.log(payload);
       if (!payload || (payload.email !== email)) {
         return res.status(200).send(RESPONSE('Thông tin không hợp lệ', 0));
       }
-      const checkToken = await db.StoreToken({
+      const checkToken = await db.StoreToken.findOne({
         where: {
           token: code,
           userId: payload.id,
@@ -301,6 +315,7 @@ const userController = {
       await trx.commit();
       return res.status(200).send(RESPONSE('Khôi phục mật khẩu thành công', 0));
     } catch (error) {
+      console.log(error);
       await trx.rollback();
       return res.status(200).send(RESPONSE('có lỗi xảy ra', -1, error));
     }
@@ -308,14 +323,15 @@ const userController = {
   },
   async updateUser(req, res) {
     const trx = await sequelize.transaction();
+    const { fullname, phoneNumber, gender, imageAvatar, address } = req.body;
     try {
-      const { fullname, phoneNumber, gender, imageAvatar, address } = req.body;
-      const checkUser = await db.User.findOne({
+        const checkUser = await db.User.findOne({
         where: {
           id: req.userId
         },
-        raw: true,
+        // raw: true,
       });
+      // console.log(checkUser);
       let currentAvatar = checkUser.imageAvatar;
       if (fullname) checkUser.fullname = fullname;
       if (phoneNumber) checkUser.phoneNumber = phoneNumber;
@@ -329,8 +345,9 @@ const userController = {
           return res.status(200).send(RESPONSE('Kích thước file <= 2M', -1));
         }
         const fileName = image.saveImage(imageAvatar, 'avatar');
-        checkUser.imageAvatar = fileName;
+        checkUser.imageAvatar = 'avatar/' + fileName;
       }
+
       await checkUser.save({ transaction: trx });
       await trx.commit();
       image.deleteImage(currentAvatar);
@@ -342,6 +359,7 @@ const userController = {
         imageAvatar: `${req.headers.host}/public/${checkUser.imageAvatar}`,
       }));
     } catch (error) {
+      console.log(error);
       await trx.rollback();
       return res.status(200).send(RESPONSE('Có lỗi xảy ra', -1));
     }
@@ -380,10 +398,11 @@ const userController = {
             [Op.in]: items.map((item)=> item.itemId)
           }
         },
+        transaction: trx,
         include: [
           {
             model: db.Promotion,
-            as: 'PromotionData',
+            as: 'promotionData',
             attributes: ['reducePercent','dayBegin','dayFinish'],
             where: {
               dayBegin: {
@@ -404,11 +423,12 @@ const userController = {
       let newItems = [];
       items.forEach((item) => {
         promotion.forEach((p) => {
-          if(promotion.itemId === item.itemId) {
+          if(p.itemId === item.itemId) {
+            console.log(p.promotionData.reducePercent / 100);
             newItems.push({
               ...item,
-              price: promotion.itemData.price * 
-              (1 - promotion.PromotionData.reducePercent ? promotion.PromotionData.reducePercent : 0)
+              price: p.itemData.price * 
+              ( p.promotionData.reducePercent ? 1 - (p.promotionData.reducePercent / 100) : 1)
             })
           }
         })
@@ -437,8 +457,9 @@ const userController = {
         transaction: trx
       });
       await trx.commit();
-      return res.status(200).send(RESPONSE('Đặt đơn thành công', 0));
+      return res.status(200).send(RESPONSE('Đặt đơn thành công', 0, newItems));
     } catch (error) {
+      console.log(error);
       await trx.rollback();
       return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
@@ -801,16 +822,16 @@ const userController = {
         quantity: value.quantity
       }
     });
-    const host = req.headers.host.includes('http') ? req.headers.host : `http://${req.headers.host}`;
-    const origin = req.headers.origin.include('http') ? req.headers.origin : `https://${req.headers.origin}`;
+    // const host = req.headers.host.includes('http') ? req.headers.host : `http://${req.headers.host}`;
+    // const origin = req.headers.origin.include('http') ? req.headers.origin : `https://${req.headers.origin}`;
     const payment_json = {
       intent: 'sale',
       payer: {
         'payment_method': 'paypal'
       },
       'redirect_urls': {
-        'return_url': `${origin}/user/payment/success?&idOrder=${idOrder}`,
-        'cancel_url': `${origin}/user/payment/cancel`,
+        'return_url': `${req.protocol}://${req.headers.origin}/user/payment/success?&idOrder=${idOrder}`,
+        'cancel_url': `${req.protocol}://${req.headers.origin}/user/payment/cancel`,
       },
       transactions: [
         {

@@ -26,6 +26,7 @@ connectDB();
 initWebRouter(app);
 
 const port = process.env.PORT || 6969;
+console.log(process.env.PORT);
 app.listen(port, () => {
   console.log(`server run on port :${port}`);
 });
