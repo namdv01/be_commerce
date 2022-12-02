@@ -54,7 +54,7 @@ const userController = {
       });
     }
 
-    sendMail(email, 'Xác thực đăng ký', '', `<a href='${req.headers.origin}/confirm_regis?email=${email}&code=${code}'>Tại đây</a>`);
+    sendMail(email, 'Xác thực đăng ký', '', `<a href='${process.env.API_FE}/confirm_regis?email=${email}&code=${code}'>Tại đây</a>`);
 
     return res.status(200).send(RESPONSE('Xác nhận đăng ký trong email', 0));
   },
@@ -205,7 +205,7 @@ const userController = {
         return itemValue.map((image) => {
           return {
             ...image.dataValues,
-            image: `https://${req.headers.host}/public/${image.dataValues.image}`
+            image: `${process.env.API_BE}/public/${image.dataValues.image}`
           }
         });
       }
@@ -277,7 +277,7 @@ const userController = {
       await checkTokenForget.save();
     }
 
-    sendMail(email, 'Xác nhận quên mật khẩu', '', `<a href='${req.headers.origin}/confirm_password?email=${email}&code=${tokenV}'>Tại đây</a>`);
+    sendMail(email, 'Xác nhận quên mật khẩu', '', `<a href='${process.env.API_FE}/confirm_password?email=${email}&code=${tokenV}'>Tại đây</a>`);
     return res.status(200).send(RESPONSE('Xác nhận trong email', 0));
   },
   async confirmPassword(req, res) {
@@ -725,10 +725,13 @@ const userController = {
         {
           model: db.Shop,
           as: 'shopData',
-          attributes: ['shopName', 'address']
+          attributes: ['shopName']
         }
       ]
-    });
+    })
+    item.itemImageData.forEach((itemValue) => {
+      itemValue.image = `${process.env.API_BE}/public/${itemValue.image}`;
+    })
     if (!item) {
       return res.status(200).send(RESPONSE('Thông tin không chính xác', -1));
     }
@@ -830,8 +833,8 @@ const userController = {
         'payment_method': 'paypal'
       },
       'redirect_urls': {
-        'return_url': `${req.protocol}://${req.headers.origin}/user/payment/success?&idOrder=${idOrder}`,
-        'cancel_url': `${req.protocol}://${req.headers.origin}/user/payment/cancel`,
+        'return_url': `${process.env.API_FE}/user/payment/success?&idOrder=${idOrder}`,
+        'cancel_url': `${process.env.API_FE}/user/payment/cancel`,
       },
       transactions: [
         {
