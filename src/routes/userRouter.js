@@ -10,7 +10,7 @@ router.get('/logout', userController.logout);
 router.get('/profile', middleware.verifyToken, userController.getInfo);
 router.get('/search_product', userController.searchProduct);
 router.get('/detail_item/:idItem', userController.getDetailItem);
-router.post('/change_passowrd', middleware.verifyToken, userController.changePassword);
+router.post('/change_password', middleware.verifyToken, userController.changePassword);
 router.post('/forget_password', userController.forgetPassword);
 router.post('/confirm_password', userController.confirmPassword);
 router.post('/update_profile', middleware.verifyToken, userController.updateUser);

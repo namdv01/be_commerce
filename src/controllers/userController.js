@@ -157,6 +157,7 @@ const userController = {
   },
   async searchProduct(req, res) {
     let { name, priceMin, priceMax, page, size } = req.query;
+    console.log(req.query);
     const options = {};
     page = page ? parseInt(page) : parseInt(process.env.PAGE);
     size = size ? parseInt(size) : parseInt(process.env.SIZE);
@@ -228,7 +229,6 @@ const userController = {
       where: {
         email: req.userEmail,
       },
-      raw: true,
     });
     const checkPassword = convertBcrypt.compare(password, checkUser.password);
     if (!checkPassword) {
@@ -350,13 +350,13 @@ const userController = {
 
       await checkUser.save({ transaction: trx });
       await trx.commit();
-      image.deleteImage(currentAvatar);
+      if (imageAvatar ) image.deleteImage(currentAvatar);
       return res.status(200).send(RESPONSE('Cập nhật thông tin thành công', 0, {
         fullname,
         phoneNumber,
         gender,
         address,
-        imageAvatar: `${req.headers.host}/public/${checkUser.imageAvatar}`,
+        imageAvatar: checkUser.imageAvatar,
       }));
     } catch (error) {
       console.log(error);
@@ -373,7 +373,15 @@ const userController = {
         {
           model: db.Item,
           as: 'itemData',
-          attributes: ['name','description','price']
+          attributes: ['name','description','price'],
+
+          include: [
+            {
+              model: db.ItemImage,
+              as: 'itemImageData',
+              attributes: ['image']
+            }
+          ]
         }
       ]
     });
