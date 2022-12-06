@@ -31,4 +31,5 @@ router.get('/payment/success',userController.paymentSuccess);
 router.get('/payment/cancel',userController.paymentCancel);
 router.get('/check_order', middleware.verifyToken, middleware.verifyBuyer, userController.checkSuccess);
 router.post('/chat', middleware.verifyToken, userController.chat);
+router.post('/addNewItemToCart', middleware.verifyToken, middleware.verifyBuyer, userController.addNewItemToCart);
 module.exports = router;

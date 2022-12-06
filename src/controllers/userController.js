@@ -1,6 +1,6 @@
 const db = require('../models/index');
 const { Op, } = require('sequelize');
-const {sequelize} = require('../config/connectDB');
+const { sequelize } = require('../config/connectDB');
 const sendMail = require('../service/sendMail');
 const RESPONSE = require('../schema/response');
 const convertBcrypt = require('../service/convertBcrypt');
@@ -119,11 +119,11 @@ const userController = {
       where: {
         userId: checkUser.id
       },
-      attributes: ['itemId','quantity'],
-      raw:true,
+      attributes: ['itemId', 'quantity'],
+      raw: true,
     });
     res.cookie('token', newToken);
-    res.cookie('cart',JSON.stringify(cart));
+    res.cookie('cart', JSON.stringify(cart));
     return res.status(200).send(RESPONSE('Đăng nhập thành công', 0, checkUser));
   },
   async logout(req, res) {
@@ -218,7 +218,7 @@ const userController = {
     // console.log(convertProducts);
     return res.status(200).send(RESPONSE('danh sách sản phẩm', 0, {
       totalPage: Math.ceil(totalProduct / size),
-      products:convertProducts,
+      products: convertProducts,
       page,
       size,
     }))
@@ -325,7 +325,7 @@ const userController = {
     const trx = await sequelize.transaction();
     const { fullname, phoneNumber, gender, imageAvatar, address } = req.body;
     try {
-        const checkUser = await db.User.findOne({
+      const checkUser = await db.User.findOne({
         where: {
           id: req.userId
         },
@@ -350,7 +350,7 @@ const userController = {
 
       await checkUser.save({ transaction: trx });
       await trx.commit();
-      if (imageAvatar ) image.deleteImage(currentAvatar);
+      if (imageAvatar) image.deleteImage(currentAvatar);
       return res.status(200).send(RESPONSE('Cập nhật thông tin thành công', 0, {
         fullname,
         phoneNumber,
@@ -373,16 +373,46 @@ const userController = {
         {
           model: db.Item,
           as: 'itemData',
-          attributes: ['name','description','price'],
+          attributes: ['name', 'description', 'price', 'quantity'],
 
           include: [
             {
               model: db.ItemImage,
               as: 'itemImageData',
               attributes: ['image']
+            },
+            {
+              model: db.PromotionItem,
+              as: 'promotionItemData',
+              attributes: ['promotionId'],
+
+              include: [
+                {
+                  model: db.Promotion,
+                  as: 'promotionData',
+                  attributes: ['reducePercent', 'dayBegin', 'dayFinish'],
+                  where: {
+                    dayBegin: {
+                      [Op.lte]: new Date(),
+                    },
+                    dayFinish: {
+                      [Op.gte]: new Date(),
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              model: db.Cart,
+              as: 'cartData',
+              attributes: ['userId', 'quantity'],
+              where: {
+                userId: req.userId,
+              }
             }
-          ]
-        }
+          ],
+        },
+
       ]
     });
     return res.status(200).send(RESPONSE('giỏ hàng người dùng', 0, cart));
@@ -403,7 +433,7 @@ const userController = {
       const promotion = await db.PromotionItem.findAll({
         where: {
           itemId: {
-            [Op.in]: items.map((item)=> item.itemId)
+            [Op.in]: items.map((item) => item.itemId)
           }
         },
         transaction: trx,
@@ -411,7 +441,7 @@ const userController = {
           {
             model: db.Promotion,
             as: 'promotionData',
-            attributes: ['reducePercent','dayBegin','dayFinish'],
+            attributes: ['reducePercent', 'dayBegin', 'dayFinish'],
             where: {
               dayBegin: {
                 [Op.lte]: new Date(),
@@ -431,17 +461,17 @@ const userController = {
       let newItems = [];
       items.forEach((item) => {
         promotion.forEach((p) => {
-          if(p.itemId === item.itemId) {
+          if (p.itemId === item.itemId) {
             console.log(p.promotionData.reducePercent / 100);
             newItems.push({
               ...item,
-              price: p.itemData.price * 
-              ( p.promotionData.reducePercent ? 1 - (p.promotionData.reducePercent / 100) : 1)
+              price: p.itemData.price *
+                (p.promotionData.reducePercent ? 1 - (p.promotionData.reducePercent / 100) : 1)
             })
           }
         })
       });
-      
+
       const newOrder = await db.Order.create({
         userId: req.userId,
         isPayment,
@@ -513,16 +543,16 @@ const userController = {
           deliver: 'done',
         },
         include: [
-            {
-              model: db.OrderItem,
-              as: 'orderItemData',
-              target: [],
-              attributes: ['itemId'],
-              where: {
-                itemId,
-              }
+          {
+            model: db.OrderItem,
+            as: 'orderItemData',
+            target: [],
+            attributes: ['itemId'],
+            where: {
+              itemId,
             }
-          ]
+          }
+        ]
       });
       if (!checkReview || checkReview.orderItemData?.length === 0) {
         return res.status(200).send(RESPONSE('Bình luận không hợp lệ', -1));
@@ -534,7 +564,7 @@ const userController = {
       if (star) {
         options.star = star;
       }
-      
+
       const idComment = await db.Recomment.create({
         ...options,
         userId: req.userId,
@@ -582,7 +612,7 @@ const userController = {
       },
       nest: true,
       order: [
-        ['createdAt','DESC']
+        ['createdAt', 'DESC']
       ],
       include: [
         {
@@ -601,16 +631,16 @@ const userController = {
                 {
                   model: db.Shop,
                   as: 'shopData',
-                  attributes: ['shopName','status','id'],
+                  attributes: ['shopName', 'status', 'id'],
                 },
                 {
                   model: db.ItemImage,
                   as: 'itemImageData',
-                  attributes: ['image','id'],
+                  attributes: ['image', 'id'],
                 }
               ]
             },
-            
+
           ]
         },
       ],
@@ -799,7 +829,7 @@ const userController = {
     }))
   },
   async chat(req, res) {
-    const {idReader, text} = req.body;
+    const { idReader, text } = req.body;
     await db.Chat.create({
       readerId: idReader,
       writerId: req.userId,
@@ -821,7 +851,7 @@ const userController = {
     return res.status(200).send(RESPONSE('Update thông báo thành công', 0));
   },
   async paymentByPaypal(req, res) {
-    const {items, idOrder} = req.body;
+    const { items, idOrder } = req.body;
     let totalAmount = 0;
     const fixItem = items.map((value) => {
       totalAmount += (value.price * value.quantity);
@@ -861,9 +891,9 @@ const userController = {
       if (err) {
         return res.status(200).send(RESPONSE('có lỗi xảy ra', -1, err));
       }
-      for(let i = 0; i < payment.links.length; i++) {
+      for (let i = 0; i < payment.links.length; i++) {
         if (payment.links[i].rel === 'approval_url') {
-          if(payment.links[i].href.includes('payment/success')) {
+          if (payment.links[i].href.includes('payment/success')) {
             await db.Order.update({
               isPayment: true,
             }, {
@@ -879,7 +909,7 @@ const userController = {
   },
   async paymentSuccess(req, res) {
     console.log(req.headers['x-forwarded-proto']);
-    const {paymentId, PayerID: payerId,idOrder } = req.query;
+    const { paymentId, PayerID: payerId, idOrder } = req.query;
     await db.Order.update({
       isPayment: true,
     }, {
@@ -898,7 +928,7 @@ const userController = {
     return res.status(200).send(RESPONSE('Giao dịch bị hủy', 0));
   },
   async checkSuccess(req, res) {
-    const {idOrder} = req.query;
+    const { idOrder } = req.query;
     const checkOrder = await db.Order.findOne({
       where: {
         userId: req.userId,
@@ -908,7 +938,47 @@ const userController = {
     if (checkOrder.isPayment) {
       return res.status(200).send(RESPONSE('Đơn hàng đã được xác nhận thanh toán', 0));
     }
-    return res.status(200),send(RESPONSE('Đơn hàng chưa thanh toán', -1));
+    return res.status(200).send(RESPONSE('Đơn hàng chưa thanh toán', -1));
+  },
+
+  async addNewItemToCart(req, res) {
+    /*
+    // new item to add
+      body = 
+        {id: 1, quantity}
+      
+    */
+    const { body } = req;
+    const checkCart = await db.Cart.findOne({
+      where: {
+        userId: req.userId,
+        itemId: body.id
+      }
+    });
+    let { cart } = req.cookies;
+    cart = JSON.parse(cart);
+    if (checkCart) {
+      checkCart.quantity += body.quantity;
+      await checkCart.save();
+      console.log(cart);
+      console.log(body);
+      const findIndex = cart.findIndex((item) => item.itemId === body.id);
+      cart[findIndex].quantity += body.quantity;
+    } else {
+      await db.Cart.create({
+        userId: req.userId,
+        itemId: body.id,
+        quantity: body.quantity,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      cart.push({
+        id: body.id,
+        quantity: body.quantity,
+      });
+    }
+    res.cookie('cart', JSON.stringify(cart));
+    return res.status(200).send(RESPONSE(' Thêm sản phẩm thành công', 0));
   }
 };
 

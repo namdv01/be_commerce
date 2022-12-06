@@ -18,10 +18,18 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'itemId',
         as: 'itemImageData',
       });
+      Item.hasMany(models.PromotionItem, {
+        foreignKey: 'itemId',
+        as: 'promotionItemData',
+      });
       Item.belongsTo(models.Shop, {
         foreignKey: 'shopId',
         as: 'shopData',
         targetKey: 'id',
+      });
+      Item.hasMany(models.Cart, {
+        foreignKey: 'itemId',
+        as: 'cartData',
       })
     }
   }
