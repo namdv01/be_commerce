@@ -2,7 +2,7 @@
 const RESPONSE = require('../schema/response');
 const db = require('../models');
 const token = require('../service/token');
-const {sequelize} = require('../config/connectDB');
+const { sequelize } = require('../config/connectDB');
 
 const middleware = {
   async verifyToken(req, res, next) {
@@ -44,14 +44,18 @@ const middleware = {
         }
       },
     );
-    res.cookie('token', newToken);
+    res.cookie('token', newToken, {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+    });
     next();
   },
 
   async verifyBuyer(req, res, next) {
     if (req.userPosition === 'buyer') {
-      if(req.cookies.cart) {
-        let {cart} = req.cookies;
+      if (req.cookies.cart) {
+        let { cart } = req.cookies;
         cart = JSON.parse(cart);
         cart = cart.map((item) => {
           return {
@@ -67,26 +71,26 @@ const middleware = {
             },
             transaction: trx,
           });
-          await db.Cart.bulkCreate(cart,{
+          await db.Cart.bulkCreate(cart, {
             transaction: trx
           })
           await trx.commit();
         } catch (error) {
           await trx.rollback();
         }
-      /*
-        cart = [
-          {
-            itemId: 1,
-            quantity: 10,
-            id: 1,
-          },
-          {
-            itemId: 3,
-            quantity: 20,
-          },
-        ]
-      */
+        /*
+          cart = [
+            {
+              itemId: 1,
+              quantity: 10,
+              id: 1,
+            },
+            {
+              itemId: 3,
+              quantity: 20,
+            },
+          ]
+        */
       }
       next();
     }

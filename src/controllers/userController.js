@@ -122,8 +122,16 @@ const userController = {
       attributes: ['itemId', 'quantity'],
       raw: true,
     });
-    res.cookie('token', newToken);
-    res.cookie('cart', JSON.stringify(cart));
+    res.cookie('token', newToken, {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+    });
+    res.cookie('cart', JSON.stringify(cart), {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+    });
     return res.status(200).send(RESPONSE('Đăng nhập thành công', 0, checkUser));
   },
   async logout(req, res) {
@@ -163,7 +171,7 @@ const userController = {
     size = size ? parseInt(size) : parseInt(process.env.SIZE);
     if (name) {
       options.name = {
-        [Op.iLike]: `${name}%`,
+        [Op.like]: `${name}%`,
       }
     }
     if (priceMin) {
@@ -977,7 +985,11 @@ const userController = {
         quantity: body.quantity,
       });
     }
-    res.cookie('cart', JSON.stringify(cart));
+    res.cookie('cart', JSON.stringify(cart), {
+      path: '/',
+      httpOnly: true,
+      secure: true,
+    });
     return res.status(200).send(RESPONSE(' Thêm sản phẩm thành công', 0));
   }
 };
