@@ -28,27 +28,27 @@ const middleware = {
     req.userPosition = payload.position;
     req.userId = payload.id;
 
-    const newToken = token.createToken({
-      id: req.userId,
-      position: req.userPosition,
-      email: req.userEmail,
-    })
-    await db.StoreToken.update(
-      {
-        token: newToken,
-        updatedAt: new Date(),
-      },
-      {
-        where: {
-          userId: req.userId,
-        }
-      },
-    );
-    res.cookie('token', newToken, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-    });
+    // const newToken = token.createToken({
+    //   id: req.userId,
+    //   position: req.userPosition,
+    //   email: req.userEmail,
+    // })
+    // await db.StoreToken.update(
+    //   {
+    //     token: newToken,
+    //     updatedAt: new Date(),
+    //   },
+    //   {
+    //     where: {
+    //       userId: req.userId,
+    //     }
+    //   },
+    // );
+    // res.cookie('token', newToken, {
+    //   path: '/',
+    //   // httpOnly: true,
+    //   // secure: true,
+    // });
     next();
   },
 

@@ -124,13 +124,13 @@ const userController = {
     });
     res.cookie('token', newToken, {
       path: '/',
-      httpOnly: true,
-      secure: true,
+      // httpOnly: true,
+      // secure: true,
     });
     res.cookie('cart', JSON.stringify(cart), {
       path: '/',
-      httpOnly: true,
-      secure: true,
+      // httpOnly: true,
+      // secure: true,
     });
     return res.status(200).send(RESPONSE('Đăng nhập thành công', 0, checkUser));
   },
@@ -987,8 +987,8 @@ const userController = {
     }
     res.cookie('cart', JSON.stringify(cart), {
       path: '/',
-      httpOnly: true,
-      secure: true,
+      // httpOnly: true,
+      // secure: true,
     });
     return res.status(200).send(RESPONSE(' Thêm sản phẩm thành công', 0));
   }
