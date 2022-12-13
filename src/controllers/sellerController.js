@@ -15,6 +15,10 @@ const sellerController = {
   },
   async getDetailShop(req, res) {
     const { idShop } = req.params;
+    let { page, size } = req.query;
+    page = parseInt(page || 1);
+    size = parseInt(size || process.env.SIZE);
+    console.log(req.params);
     const result = await db.Shop.findOne({
       where: {
         id: idShop,
@@ -24,24 +28,45 @@ const sellerController = {
       required: false,
       include: {
         model: db.Item,
-        as: 'itemData',
-        target: ['name', 'description', 'id', 'quantity', 'price', 'itemTypeId'],
-        include: {
-          model: db.ItemImage,
-          as: 'itemImageData',
-          target: ['image'],
-        }
+        as: 'itemsData',
+        attributes: ['name', 'description', 'id', 'quantity', 'price', 'itemTypeId'],
+        limit: size,
+        offset: (page - 1) * size
+        // include: {
+        //   model: db.ItemImage,
+        //   as: 'itemImageData',
+        //   attributes: ['image'],
+        // }
+      }
+    });
+    const callSize = await db.Shop.count({
+      where: {
+        id: idShop,
+        ownerId: req.userId,
+      },
+      nest: true,
+      required: false,
+      include: {
+        model: db.Item,
+        as: 'itemsData',
+        attributes: ['name', 'description', 'id', 'quantity', 'price', 'itemTypeId'],
       }
     });
     if (!result) {
       return res.status(200).send(RESPONSE('Thông tin không chính xác', -1));
     }
-    return res.status(200).send(RESPONSE('Chi tiết về gian hàng', 0, result));
+    return res.status(200).send(RESPONSE('Chi tiết về gian hàng', 0, {
+      items: result,
+      total: callSize,
+      totalPage: Math.ceil(callSize / size),
+      page,
+      size,
+    }));
   },
   async addItem(req, res) {
     try {
       const trx = new Transaction();
-      const {name, description, price, itemTypeId, images, shopId} = req.body;
+      const { name, description, price, itemTypeId, images, shopId } = req.body;
       const newItem = await db.Item.create({
         name,
         price,
@@ -50,12 +75,13 @@ const sellerController = {
         createdAt: new Date(),
         updatedAt: new Date(),
         shopId,
+        //chưa check owner
         itemTypeId,
-      },{
+      }, {
         transaction: trx,
       });
       images.forEach(async (imageValue) => {
-        if(!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
+        if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
           await trx.rollback();
           return res.status(200).send(RESPONSE('Ảnh không hợp lệ', -1));
         }
@@ -81,7 +107,7 @@ const sellerController = {
   },
   async removeItem(req, res) {
     //change quantity = - 1, not show and search in client
-    const {idItem} = req.params;
+    const { idItem } = req.params;
     const checkOwn = await db.Item.findOne({
       where: {
         id: idItem,
@@ -91,7 +117,7 @@ const sellerController = {
         {
           model: db.Shop,
           as: 'shopData',
-          target: ['id'],
+          attributes: ['id'],
           where: {
             ownerId: req.userId
           }
@@ -104,7 +130,7 @@ const sellerController = {
     }
     await db.Item.update({
       quantity: -1,
-    },{
+    }, {
       where: {
         id: idItem
       }
@@ -114,8 +140,8 @@ const sellerController = {
   async updateItem(req, res) {
     try {
       const trx = new Transaction();
-      const {idItem} = req.params;
-      const {name, description, price, quantity, imagesAdd, imagesRemove} = req.body;
+      const { idItem } = req.params;
+      const { name, description, price, quantity, imagesAdd, imagesRemove } = req.body;
       const options = {};
       const checkOwn = await db.Item.findOne({
         where: {
@@ -126,7 +152,7 @@ const sellerController = {
           {
             model: db.Shop,
             as: 'shopData',
-            target: ['id'],
+            attributes: ['id'],
             where: {
               ownerId: req.userId
             }
@@ -137,9 +163,9 @@ const sellerController = {
       if (!checkOwn.shopData.id) {
         return res.status(200).send(RESPONSE('Không thể thao tác với sản phẩm', -1));
       }
-      if(imagesAdd) {
+      if (imagesAdd) {
         imagesAdd.forEach((imageValue) => {
-          if(!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
+          if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
             return res.status(200).send(RESPONSE('File ảnh không hợp lệ', -1));
           }
         });
@@ -149,13 +175,13 @@ const sellerController = {
             image: image.saveImage(imageValue),
             createdAt: new Date(),
             updatedAt: new Date(),
-          } 
+          }
         });
         await db.ItemImage.bulkCreate(newArr, {
           transaction: trx
         });
       }
-      if(imagesRemove) {
+      if (imagesRemove) {
         await db.ItemImage.destroy({
           where: {
             image: {
@@ -165,10 +191,10 @@ const sellerController = {
           transaction: trx
         })
       }
-      if(name) options.name = name;
-      if(description) options.description = description;
-      if(price) options.price = price;
-      if(quantity) options.quantity = quantity;
+      if (name) options.name = name;
+      if (description) options.description = description;
+      if (price) options.price = price;
+      if (quantity) options.quantity = quantity;
       options.updatedAt = new Date();
 
       await db.Item.update(options, {
@@ -192,7 +218,7 @@ const sellerController = {
 
   },
   async updateInfoShop(req, res) {
-    const {idShop, status, phoneContact, description, shopName, logo} = req.body;
+    const { idShop, status, phoneContact, description, shopName, logo } = req.body;
     const options = { updatedAt: new Date() };
     let currentLogo;
     const checkOwn = await db.Shop.findOne({
@@ -201,7 +227,7 @@ const sellerController = {
         ownerId: req.userId,
       }
     });
-    if(!checkOwn) {
+    if (!checkOwn) {
       return res.status(200).send(RESPONSE('Không thể cập nhật thông tin gian hàng', -1));
     }
     if (shopName) options.shopName = shopName;
@@ -214,7 +240,7 @@ const sellerController = {
       options.status = status;
     }
     if (logo) {
-      if (!image.isImage(logo) || !image.readSize(logo) ) {
+      if (!image.isImage(logo) || !image.readSize(logo)) {
         return res.status(200).send(RESPONSE('logo gian hàng không hợp lệ', -1));
       }
       currentLogo = checkOwn.logo;
@@ -231,24 +257,44 @@ const sellerController = {
     return res.status(200).send(RESPONSE('Cập nhật thông tin gian hàng thành công', 0));
   },
   async getListOrder(req, res) {
-    const {idShop} = req.params;
-    const result = await db.OrderItem.findAll({
-      // include: [
-      //   {
-      //     model: db.
-      //   }
-      // ]
-    })
+    const { idShop } = req.params;
+    let result = await db.Order.findAll({
+      include: [
+        {
+          model: db.OrderItem,
+          as: 'orderItemData',
+          attributes: ['itemId', 'quantity', 'price'],
+          include: [
+            {
+              model: db.Item,
+              as: 'itemData',
+              attributes: ['shopId', 'name', 'itemTypeId'],
+              where: {
+                shopId: idShop
+              },
+              // required: true,
+            }
+          ],
+        },
+        {
+          model: db.User,
+          as: 'userData',
+          attributes: ['fullname', 'imageAvatar'],
+        }
+      ],
+    });
+    result = result.filter((item) => item.orderItemData.length !== 0);
+    return res.status(200).send(RESPONSE('danh sách đơn hàng', 0, result));
   },
   async getListComment(req, res) {
     //for item or for all
   },
   async updateOrder(req, res) {
-    const {isPayment, deliver, idOrder} = req.body;
+    const { isPayment, deliver, idOrder } = req.body;
     // const checkOwn = 
   },
   async addPromotion(req, res) {
-    const {reducePercent, text, dayBegin, dayFinish} = req.body;
+    const { reducePercent, text, dayBegin, dayFinish } = req.body;
     if (dayFinish < dayBegin) return res.status(200).send(RESPONSE('Thời gian khuyến mãi không hợp lệ', -1));
     await db.Promotion.create({
       userId: req.userId,
@@ -262,12 +308,12 @@ const sellerController = {
     return res.status(200).send(RESPONSE('Tạo khuyến mãi thành công'));
   },
   async toggleItemOnPromotion(req, res) {
-    const {items, idPromotion} = req.body;
+    const { items, idPromotion } = req.body;
     const listItemPromotion = await db.PromotionItem.findAll({
       where: {
         promotionId: idPromotion,
         dayFinish: {
-          [Op.gte]: new Date(), 
+          [Op.gte]: new Date(),
         }
       }
     });
@@ -292,17 +338,17 @@ const sellerController = {
         {
           model: db.PromotionItem,
           as: 'promotionItemData',
-          target: ['itemId'],
+          attributes: ['itemId'],
           include: [
             {
               model: db.Item,
               as: 'itemData',
-              target: ['name', 'price','description','shopId'],
+              attributes: ['name', 'price', 'description', 'shopId'],
               include: [
                 {
                   model: db.Shop,
                   as: 'shopData',
-                  target: ['name'],
+                  attributes: ['name'],
                   where: {
                     ownerId: req.userId
                   }
@@ -313,7 +359,7 @@ const sellerController = {
         }
       ]
     });
-    return res.status(200).send(RESPONSE('danh sách khuyến mãi người bán tạo',0,result));
+    return res.status(200).send(RESPONSE('danh sách khuyến mãi người bán tạo', 0, result));
   },
   async getListClientBuy(req, res) {
     // const 
@@ -325,19 +371,19 @@ const sellerController = {
         {
           model: db.User,
           as: 'userData',
-          target: ['fullname'],
+          attributes: ['fullname'],
         },
       ],
       // group: 'userData.fullname',
-      attributes: [[sequelize.fn('count', sequelize.col('User.fullname')),'totalOrder']]
+      attributes: [[sequelize.fn('count', sequelize.col('User.fullname')), 'totalOrder']]
     });
     return res.status(200).send(RESPONSE('danh sách người dùng', 0, result))
   },
   async createShop(req, res) {
     try {
       const trx = new Transaction();
-      const {logo, description, shopName, phoneContact, status} = req.body;
-      if(!logo || !description || !shopName || !phoneContact || !status) {
+      const { logo, description, shopName, phoneContact, status } = req.body;
+      if (!logo || !description || !shopName || !phoneContact || !status) {
         return res.status(200).send(RESPONSE('Thiếu thông tin gian hàng', -1));
       }
       const checkLimitCreateShop = await db.User.findOne({
@@ -364,14 +410,14 @@ const sellerController = {
       return res.status(200).send(RESPONSE('Tạo thêm gian hàng thành công', 0));
     } catch (error) {
       await trx.rollback();
-      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1)); 
+      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
   },
   async updateShop(req, res) {
     // set state shop = close
     try {
       const trx = new Transaction();
-      const {logo, description, shopName, phoneContact, status} = req.body;
+      const { logo, description, shopName, phoneContact, status } = req.body;
       const options = {};
       if (logo) {
         if (!image.isImage(logo) || image.readSize(logo) > 2) {
@@ -391,7 +437,7 @@ const sellerController = {
       return res.status(200).send(RESPONSE('Cập nhật gian hàng thành công', 0));
     } catch (error) {
       await trx.rollback();
-      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1)); 
+      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
   }
 }
