@@ -349,8 +349,8 @@ const userController = {
         if (!image.isImage(imageAvatar)) {
           return res.status(200).send(RESPONSE('File không hợp lệ', -1));
         }
-        if (image.readSize(imageAvatar) > 2) {
-          return res.status(200).send(RESPONSE('Kích thước file <= 2M', -1));
+        if (image.readSize(imageAvatar) > 5) {
+          return res.status(200).send(RESPONSE('Kích thước file <= 5M', -1));
         }
         const fileName = image.saveImage(imageAvatar, 'avatar');
         checkUser.imageAvatar = 'avatar/' + fileName;
@@ -611,12 +611,13 @@ const userController = {
 
   // },
   async getHistoryOrder(req, res) {
-    let { page, size } = req.query;
+    let { page, size, status } = req.query;
     page = page ? parseInt(page) : parseInt(process.env.PAGE);
     size = size ? parseInt(size) : parseInt(process.env.SIZE);
     const options = {
       where: {
-        userId: req.userId
+        userId: req.userId,
+        deliver: status,
       },
       nest: true,
       order: [
@@ -651,6 +652,11 @@ const userController = {
 
           ]
         },
+        {
+          model: db.User,
+          as: 'userData',
+          attributes: ['fullname']
+        }
       ],
     }
     const total = await db.Order.count({
@@ -991,7 +997,28 @@ const userController = {
       // secure: true,
     });
     return res.status(200).send(RESPONSE(' Thêm sản phẩm thành công', 0));
+  },
+  async getListComments(req, res) {
+    const listComments = await db.Recomment.findAll({
+      where: {
+        userId: req.userId,
+      },
+      include: [
+        {
+          model: db.Item,
+          as: 'itemData',
+          attributes: ['name', 'price']
+        },
+        {
+          model: db.CommentImage,
+          as: 'commentImageData',
+          attributes: ['image'],
+        }
+      ]
+    });
+    return res.status(200).send(RESPONSE('Danh sách comment', 0, listComments));
   }
 };
+
 
 module.exports = userController;

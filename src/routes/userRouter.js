@@ -21,14 +21,15 @@ router.post('/review_item', middleware.verifyToken, middleware.verifyBuyer, user
 router.get('/list_orders', middleware.verifyToken, middleware.verifyBuyer, userController.getHistoryOrder);
 router.get('/list_shop_favorite', middleware.verifyToken, middleware.verifyBuyer, userController.getListShopFavorite);
 router.get('/toggle_shop_favorite', middleware.verifyToken, middleware.verifyBuyer, userController.toggleFavoriteShop);
-router.get('/detail_order/:idOrder', middleware.verifyToken,  userController.getDetailOrder);
+router.get('/detail_order/:idOrder', middleware.verifyToken, userController.getDetailOrder);
 router.get('/detail_item/:idItem', userController.getDetailItem);
 router.get('/detail_shop/:idShop', userController.getDetailShop);
 router.get('/update_notify/:idNotify', middleware.verifyToken, userController.updateNotify);
+router.get('/list_comments', middleware.verifyToken, userController.getListComments);
 
-router.post('/payment',middleware.verifyToken, middleware.verifyBuyer, userController.paymentByPaypal);
-router.get('/payment/success',userController.paymentSuccess);
-router.get('/payment/cancel',userController.paymentCancel);
+router.post('/payment', middleware.verifyToken, middleware.verifyBuyer, userController.paymentByPaypal);
+router.get('/payment/success', userController.paymentSuccess);
+router.get('/payment/cancel', userController.paymentCancel);
 router.get('/check_order', middleware.verifyToken, middleware.verifyBuyer, userController.checkSuccess);
 router.post('/chat', middleware.verifyToken, userController.chat);
 router.post('/addNewItemToCart', middleware.verifyToken, middleware.verifyBuyer, userController.addNewItemToCart);

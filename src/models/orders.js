@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
       userId: DataTypes.INTEGER,
       isPayment: DataTypes.BOOLEAN,
       methodPayment: DataTypes.ENUM(['paypal', 'afterReveice']),
-      deliver: DataTypes.ENUM(['none','delivering', 'done', 'cancel']),
+      deliver: DataTypes.ENUM(['watting', 'confirm', 'delivering', 'done', 'cancel']),
       timeOrder: DataTypes.DATE,
       addressReceive: DataTypes.STRING,
       phoneContact: DataTypes.STRING,
