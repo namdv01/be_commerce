@@ -437,7 +437,7 @@ const userController = {
         }
        ]
        */
-      const { items, isPayment, methodPayment, addressReceive, phoneContact } = req.body;
+      const { items, isPayment, methodPayment, addressReceive, phoneContact, } = req.body;
       const promotion = await db.PromotionItem.findAll({
         where: {
           itemId: {
@@ -865,7 +865,31 @@ const userController = {
     return res.status(200).send(RESPONSE('Update thông báo thành công', 0));
   },
   async paymentByPaypal(req, res) {
-    const { items, idOrder } = req.body;
+    // const { items, idOrder } = req.query;\
+    const { orders } = req.cookies;
+    /**orders = [
+     * {
+     *  //not price 
+     * quantity: 2,
+     * id: 1,
+     * }]
+     * 
+     * 
+     */
+    console.log(req.cookies);
+    const items = [
+      {
+        price: 10000,
+        quantity: 2,
+        name: 'Bánh kẹo',
+      },
+      {
+        price: 600000,
+        quantity: 5,
+        name: 'Quần áo',
+      },
+    ];
+    const idOrder = 4;
     let totalAmount = 0;
     const fixItem = items.map((value) => {
       totalAmount += (value.price * value.quantity);
@@ -885,13 +909,22 @@ const userController = {
         'payment_method': 'paypal'
       },
       'redirect_urls': {
-        'return_url': `${process.env.API_FE}/user/payment/success?&idOrder=${idOrder}`,
-        'cancel_url': `${process.env.API_FE}/user/payment/cancel`,
+        // ? thêm param
+        'return_url': `${process.env.API_FE}/payment/success?idOrder=${idOrder}`,
+        'cancel_url': `${process.env.API_FE}/payment/cancel`,
       },
       transactions: [
         {
           'item_list': {
-            items: fixItem
+            items: fixItem,
+            'shipping_address': {
+              "recipient_name": 'Tên người trong form',
+              "line1": '123 Hồ Tùng Mậu',
+              "city": 'Hà Nội',
+              "state": ' ',
+              // "postal_code": 11109, //mã bưu điện hà nội
+              "country_code": "VN"
+            }
           },
           amount: {
             currency: 'USD',

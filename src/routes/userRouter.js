@@ -27,7 +27,7 @@ router.get('/detail_shop/:idShop', userController.getDetailShop);
 router.get('/update_notify/:idNotify', middleware.verifyToken, userController.updateNotify);
 router.get('/list_comments', middleware.verifyToken, userController.getListComments);
 
-router.post('/payment', middleware.verifyToken, middleware.verifyBuyer, userController.paymentByPaypal);
+router.get('/payment', middleware.verifyToken, middleware.verifyBuyer, userController.paymentByPaypal);
 router.get('/payment/success', userController.paymentSuccess);
 router.get('/payment/cancel', userController.paymentCancel);
 router.get('/check_order', middleware.verifyToken, middleware.verifyBuyer, userController.checkSuccess);
