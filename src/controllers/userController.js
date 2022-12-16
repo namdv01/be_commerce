@@ -61,8 +61,6 @@ const userController = {
   async login(req, res) {
     const { email, password } = req.body;
     const checkUser = await db.User.findOne({
-      // raw: true,
-      // nest: true,
       attributes: {
         exclude: ['createdAt', 'updatedAt'],
       },
@@ -223,7 +221,6 @@ const userController = {
         itemImageData: changeImage(item.dataValues.itemImageData)
       }
     });
-    // console.log(convertProducts);
     return res.status(200).send(RESPONSE('danh sách sản phẩm', 0, {
       totalPage: Math.ceil(totalProduct / size),
       products: convertProducts,
@@ -248,11 +245,6 @@ const userController = {
     return res.status(200).send(RESPONSE('Đổi mật khẩu thành công', 0));
   },
   async forgetPassword(req, res) {
-    // const token = token.createToken({
-    //   email: req.userEmail,
-    //   id: req.userId,
-    //   position: req.userPosition,
-    // });
     const { email } = req.body;
     const checkUser = await db.User.findOne({
       where: {
@@ -294,9 +286,8 @@ const userController = {
       const { email, code } = req.query;
       const { newPassword } = req.body;
       const payload = token.verifyToken(code);
-      console.log(payload);
       if (!payload || (payload.email !== email)) {
-        return res.status(200).send(RESPONSE('Thông tin không hợp lệ', 0));
+        return res.status(200).send(RESPONSE('Thông tin không hợp lệ', -1));
       }
       const checkToken = await db.StoreToken.findOne({
         where: {
@@ -304,7 +295,7 @@ const userController = {
           userId: payload.id,
         }
       });
-      if (!checkToken) return res.status(200).send(RESPONSE('Thông tin không hợp lệ', 0));
+      if (!checkToken) return res.status(200).send(RESPONSE('Thông tin không hợp lệ', -1));
       const hashNewPassword = convertBcrypt.hash(newPassword);
       await db.User.update({ password: hashNewPassword }, {
         where: {
@@ -339,7 +330,6 @@ const userController = {
         },
         // raw: true,
       });
-      // console.log(checkUser);
       let currentAvatar = checkUser.imageAvatar;
       if (fullname) checkUser.fullname = fullname;
       if (phoneNumber) checkUser.phoneNumber = phoneNumber;
@@ -866,93 +856,259 @@ const userController = {
   },
   async paymentByPaypal(req, res) {
     // const { items, idOrder } = req.query;\
-    const { orders } = req.cookies;
+    const trx = await sequelize.transaction();
+    try {
+      let { order } = req.cookies;
+      order = JSON.parse(order);
+      const { fullname, address, phoneContact } = req.query;
+      console.log(req.query);
+      let prices;
+      const promotion = await db.PromotionItem.findAll({
+        where: {
+          itemId: {
+            [Op.in]: order.map((item) => item.itemId)
+          }
+        },
+        transaction: trx,
+        include: [
+          {
+            model: db.Promotion,
+            as: 'promotionData',
+            attributes: ['reducePercent', 'dayBegin', 'dayFinish'],
+            where: {
+              dayBegin: {
+                [Op.lte]: new Date(),
+              },
+              dayFinish: {
+                [Op.gte]: new Date(),
+              }
+            }
+          },
+          {
+            model: db.Item,
+            as: 'itemData',
+            attributes: ['price']
+          }
+        ]
+      });
+      if (promotion.length === 0) {
+        prices = await db.Item.findAll({
+          where: {
+            id: {
+              [Op.in]: order.map((item) => item.itemId)
+            }
+          }
+        })
+      }
+      let newItems = [];
+      console.log(order);
+      console.log(promotion);
+      if (prices) {
+        order.forEach((item) => {
+          prices.forEach((p) => {
+            if (p.id === item.itemId) {
+              newItems.push({
+                ...item,
+                price: p.price
+              });
+            }
+          })
+        })
+      } else {
+        order.forEach((item) => {
+          for (let p = 0; p < promotion.length; p++) {
+            if (promotion[p].itemId === item.itemId) {
+              newItems.push({
+                ...item,
+                price: promotion[p].itemData.price * (promotion[p].promotionData.reducePercent ? 1 - (promotion[p].promotionData.reducePercent / 100) : 1)
+              });
+              break;
+            }
+          }
+        });
+      }
+
+      const newOrder = await db.Order.create({
+        userId: req.userId,
+        isPayment: false,
+        methodPayment: 'paypal',
+        deliver: 'none',
+        addressReceive: address,
+        timeOrder: new Date(),
+        phoneContact,
+      }, {
+        transaction: trx,
+      });
+      const newArr = newItems.map((itemValue) => {
+        return {
+          orderId: newOrder.dataValues.id,
+          itemId: itemValue.itemId,
+          quantity: itemValue.quantity,
+          price: itemValue.price,
+        }
+      });
+      await db.OrderItem.bulkCreate(newArr, {
+        transaction: trx
+      });
+      let totalAmount = 0;
+      console.log(newItems);
+      const fixItem = newItems.map((value) => {
+        totalAmount += (value.price * value.quantity);
+        return {
+          name: value.name,
+          sku: value.itemId,
+          price: value.price,
+          currency: 'USD',
+          quantity: value.quantity
+        }
+      });
+      const payment_json = {
+        intent: 'sale',
+        payer: {
+          'payment_method': 'paypal'
+        },
+        'redirect_urls': {
+          // ? thêm param
+          'return_url': `${process.env.API_FE}/payment/success?idOrder=${newOrder.dataValues.id}`,
+          'cancel_url': `${process.env.API_FE}/payment/cancel`,
+        },
+        transactions: [
+          {
+            'item_list': {
+              items: fixItem,
+              'shipping_address': {
+                "recipient_name": fullname,
+                "line1": address,
+                "city": ' Hà Nội',
+                "state": ' ',
+                // "postal_code": 11109, //mã bưu điện hà nội
+                "country_code": "VN"
+              }
+            },
+            amount: {
+              currency: 'USD',
+              total: totalAmount,
+            },
+            description: `Mã đơn hàng ${newOrder.dataValues.id}`
+          }
+        ]
+      };
+      paypal.payment.create(payment_json, async (err, payment) => {
+        if (err) {
+          return res.status(200).send(RESPONSE('có lỗi xảy ra', -1, err));
+        }
+        for (let i = 0; i < payment.links.length; i++) {
+          if (payment.links[i].rel === 'approval_url') {
+            return res.redirect(`${payment.links[i].href}`);
+          }
+        }
+      })
+      await trx.commit();
+      /* 
+        order = [
+          {
+            id: 1,
+            quantity: 2,
+            name: 'bánh kẹo',
+          },
+          {
+            id: 2,
+            quantity: 3,
+            name: 'quần áo',
+          }
+        ]
+      */
+    } catch (error) {
+      await trx.rollback();
+    }
+
     /**orders = [
      * {
      *  //not price 
      * quantity: 2,
      * id: 1,
+     * name: 'bánh kẹo',
      * }]
      * 
      * 
      */
-    console.log(req.cookies);
-    const items = [
-      {
-        price: 10000,
-        quantity: 2,
-        name: 'Bánh kẹo',
-      },
-      {
-        price: 600000,
-        quantity: 5,
-        name: 'Quần áo',
-      },
-    ];
-    const idOrder = 4;
-    let totalAmount = 0;
-    const fixItem = items.map((value) => {
-      totalAmount += (value.price * value.quantity);
-      return {
-        name: value.name,
-        sku: value.id,
-        price: value.price,
-        currency: 'USD',
-        quantity: value.quantity
-      }
-    });
-    // const host = req.headers.host.includes('http') ? req.headers.host : `http://${req.headers.host}`;
-    // const origin = req.headers.origin.include('http') ? req.headers.origin : `https://${req.headers.origin}`;
-    const payment_json = {
-      intent: 'sale',
-      payer: {
-        'payment_method': 'paypal'
-      },
-      'redirect_urls': {
-        // ? thêm param
-        'return_url': `${process.env.API_FE}/payment/success?idOrder=${idOrder}`,
-        'cancel_url': `${process.env.API_FE}/payment/cancel`,
-      },
-      transactions: [
-        {
-          'item_list': {
-            items: fixItem,
-            'shipping_address': {
-              "recipient_name": 'Tên người trong form',
-              "line1": '123 Hồ Tùng Mậu',
-              "city": 'Hà Nội',
-              "state": ' ',
-              // "postal_code": 11109, //mã bưu điện hà nội
-              "country_code": "VN"
-            }
-          },
-          amount: {
-            currency: 'USD',
-            total: totalAmount,
-          },
-          description: `Mã đơn hàng ${idOrder}`
-        }
-      ]
-    };
-    paypal.payment.create(payment_json, async (err, payment) => {
-      if (err) {
-        return res.status(200).send(RESPONSE('có lỗi xảy ra', -1, err));
-      }
-      for (let i = 0; i < payment.links.length; i++) {
-        if (payment.links[i].rel === 'approval_url') {
-          if (payment.links[i].href.includes('payment/success')) {
-            await db.Order.update({
-              isPayment: true,
-            }, {
-              where: {
-                id: idOrder
-              }
-            });
-          }
-          return res.redirect(`${payment.links[i].href}`);
-        }
-      }
-    })
+    // console.log(req.cookies);
+    // const items = [
+    //   {
+    //     price: 10000,
+    //     quantity: 2,
+    //     name: 'Bánh kẹo',
+    //   },
+    //   {
+    //     price: 600000,
+    //     quantity: 5,
+    //     name: 'Quần áo',
+    //   },
+    // ];
+    // const idOrder = 4;
+    // let totalAmount = 0;
+    // const fixItem = order.map((value) => {
+    //   totalAmount += (value.price * value.quantity);
+    //   return {
+    //     name: value.name,
+    //     sku: value.id,
+    //     price: value.price,
+    //     currency: 'USD',
+    //     quantity: value.quantity
+    //   }
+    // });
+    // // const host = req.headers.host.includes('http') ? req.headers.host : `http://${req.headers.host}`;
+    // // const origin = req.headers.origin.include('http') ? req.headers.origin : `https://${req.headers.origin}`;
+    // const payment_json = {
+    //   intent: 'sale',
+    //   payer: {
+    //     'payment_method': 'paypal'
+    //   },
+    //   'redirect_urls': {
+    //     // ? thêm param
+    //     'return_url': `${process.env.API_FE}/payment/success?idOrder=${idOrder}`,
+    //     'cancel_url': `${process.env.API_FE}/payment/cancel`,
+    //   },
+    //   transactions: [
+    //     {
+    //       'item_list': {
+    //         items: fixItem,
+    //         'shipping_address': {
+    //           "recipient_name": 'Tên người trong form',
+    //           "line1": '123 Hồ Tùng Mậu',
+    //           "city": 'Hà Nội',
+    //           "state": ' ',
+    //           // "postal_code": 11109, //mã bưu điện hà nội
+    //           "country_code": "VN"
+    //         }
+    //       },
+    //       amount: {
+    //         currency: 'USD',
+    //         total: totalAmount,
+    //       },
+    //       description: `Mã đơn hàng ${idOrder}`
+    //     }
+    //   ]
+    // };
+    // paypal.payment.create(payment_json, async (err, payment) => {
+    //   if (err) {
+    //     return res.status(200).send(RESPONSE('có lỗi xảy ra', -1, err));
+    //   }
+    //   for (let i = 0; i < payment.links.length; i++) {
+    //     if (payment.links[i].rel === 'approval_url') {
+    //       if (payment.links[i].href.includes('payment/success')) {
+    //         await db.Order.update({
+    //           isPayment: true,
+    //         }, {
+    //           where: {
+    //             id: idOrder
+    //           }
+    //         });
+    //       }
+    //       return res.redirect(`${payment.links[i].href}`);
+    //     }
+    //   }
+    // })
   },
   async paymentSuccess(req, res) {
     console.log(req.headers['x-forwarded-proto']);
@@ -964,7 +1120,6 @@ const userController = {
         id: idOrder
       }
     });
-    console.log(idOrder);
     return res.status(200).send(RESPONSE(`Thanh toán đơn hàng thành công`, 0, {
       paymentId,
       payerId,
@@ -975,7 +1130,6 @@ const userController = {
     return res.status(200).send(RESPONSE('Giao dịch bị hủy', 0));
   },
   async checkSuccess(req, res) {
-    const { idOrder } = req.query;
     const checkOrder = await db.Order.findOne({
       where: {
         userId: req.userId,
@@ -1007,8 +1161,6 @@ const userController = {
     if (checkCart) {
       checkCart.quantity += body.quantity;
       await checkCart.save();
-      console.log(cart);
-      console.log(body);
       const findIndex = cart.findIndex((item) => item.itemId === body.id);
       cart[findIndex].quantity += body.quantity;
     } else {
@@ -1040,7 +1192,14 @@ const userController = {
         {
           model: db.Item,
           as: 'itemData',
-          attributes: ['name', 'price']
+          attributes: ['id', 'name', 'price'],
+          include: [
+            {
+              model: db.Shop,
+              as: 'shopData',
+              attributes: ['shopName'],
+            }
+          ]
         },
         {
           model: db.CommentImage,

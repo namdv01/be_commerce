@@ -17,5 +17,6 @@ router.get('/list_client_buy', middleware.verifyToken, middleware.verifySeller, 
 router.post('/create_shop', middleware.verifyToken, middleware.verifySeller, sellerController.createShop);
 router.post('/update_shop', middleware.verifyToken, middleware.verifySeller, sellerController.updateShop);
 router.get('/list_order/:idShop', middleware.verifyToken, middleware.verifySeller, sellerController.getListOrder);
+router.get('/list_comment/:idShop', middleware.verifyToken, middleware.verifySeller, sellerController.getListComment);
 
 module.exports = router;

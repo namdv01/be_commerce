@@ -8,6 +8,8 @@ router.get('/list_users', middleware.verifyToken, middleware.verifyAdmin, adminC
 router.post('/notify_user', middleware.verifyToken, middleware.verifyAdmin, adminController.notifyToUser);
 router.post('/toggle_status_shop', middleware.verifyToken, middleware.verifyAdmin, adminController.toggleStatusShop);
 router.post('/update_user', middleware.verifyToken, middleware.verifyAdmin, adminController.updateUser);
-router.get('/orders_user/:idUser',middleware.verifyToken, middleware.verifyAdmin,adminController.getOrderOwnUser);
-router.get('/detail_order/:idOrder',middleware.verifyToken,middleware.verifyAdmin,adminController.getDetailOrder);
+router.get('/orders_user/:idUser', middleware.verifyToken, middleware.verifyAdmin, adminController.getOrderOwnUser);
+router.get('/detail_order/:idOrder', middleware.verifyToken, middleware.verifyAdmin, adminController.getDetailOrder);
+router.get('/list_order', middleware.verifyToken, middleware.verifyAdmin, adminController.getListOrder);
+router.get('/list_comment', middleware.verifyToken, middleware.verifyAdmin, adminController.getListComment);
 module.exports = router;

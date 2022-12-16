@@ -64,46 +64,60 @@ const sellerController = {
     }));
   },
   async addItem(req, res) {
-    try {
-      const trx = new Transaction();
-      const { name, description, price, itemTypeId, images, shopId } = req.body;
-      const newItem = await db.Item.create({
-        name,
-        price,
-        quantity,
-        description,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        shopId,
-        //chưa check owner
-        itemTypeId,
-      }, {
-        transaction: trx,
-      });
-      images.forEach(async (imageValue) => {
-        if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
-          await trx.rollback();
-          return res.status(200).send(RESPONSE('Ảnh không hợp lệ', -1));
-        }
-      });
-      const newArr = images.map((imageValue) => {
-        return {
-          itemId: newItem,
-          image: image.saveImage(imageValue, 'item'),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-      });
-      await db.ItemImage.bulkCreate(newArr, {
-        transaction: trx
-      });
-      await trx.commit();
-      return res.status(200).send(RESPONSE('Tạo thêm sản phẩm thành công', 0));
+    // const trx = new Transaction();
+    const { name, description, price, itemTypeId, images, shopId, quantity } = req.body;
+    const newItem = await db.Item.create({
+      name,
+      price,
+      quantity,
+      description,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      shopId,
+      //chưa check owner
+      itemTypeId,
+    });
+    return res.status(200).send(RESPONSE('Tạo thêm sản phẩm thành công', 0));
+    // try {
+    //   const { name, description, price, itemTypeId, images, shopId } = req.body;
+    //   const newItem = await db.Item.create({
+    //     name,
+    //     price,
+    //     quantity,
+    //     description,
+    //     createdAt: new Date(),
+    //     updatedAt: new Date(),
+    //     shopId,
+    //     //chưa check owner
+    //     itemTypeId,
+    //   }, {
+    //     transaction: trx,
+    //   });
+    //   // images.forEach(async (imageValue) => {
+    //   //   if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
+    //   //     await trx.rollback();
+    //   //     return res.status(200).send(RESPONSE('Ảnh không hợp lệ', -1));
+    //   //   }
+    //   // });
+    //   // const newArr = images.map((imageValue) => {
+    //   //   return {
+    //   //     itemId: newItem,
+    //   //     image: image.saveImage(imageValue, 'item'),
+    //   //     createdAt: new Date(),
+    //   //     updatedAt: new Date(),
+    //   //   }
+    //   // });
+    //   // await db.ItemImage.bulkCreate(newArr, {
+    //   //   transaction: trx
+    //   // });
+    //   // console.log(newArr);
+    //   await trx.commit();
+    //   return res.status(200).send(RESPONSE('Tạo thêm sản phẩm thành công', 0));
 
-    } catch (error) {
-      await trx.rollback();
-      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
-    }
+    // } catch (error) {
+    //   await trx.rollback();
+    //   return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
+    // }
   },
   async removeItem(req, res) {
     //change quantity = - 1, not show and search in client
@@ -380,8 +394,8 @@ const sellerController = {
     return res.status(200).send(RESPONSE('danh sách người dùng', 0, result))
   },
   async createShop(req, res) {
+    const trx = new Transaction();
     try {
-      const trx = new Transaction();
       const { logo, description, shopName, phoneContact, status } = req.body;
       if (!logo || !description || !shopName || !phoneContact || !status) {
         return res.status(200).send(RESPONSE('Thiếu thông tin gian hàng', -1));
@@ -415,8 +429,8 @@ const sellerController = {
   },
   async updateShop(req, res) {
     // set state shop = close
+    const trx = new Transaction();
     try {
-      const trx = new Transaction();
       const { logo, description, shopName, phoneContact, status } = req.body;
       const options = {};
       if (logo) {
@@ -439,6 +453,33 @@ const sellerController = {
       await trx.rollback();
       return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
+  },
+  async getListComment(req, res) {
+    const { idShop } = req.params;
+    const result = await db.Recomment.findAll({
+      include: [
+        {
+          model: db.Item,
+          as: 'itemData',
+          attributes: ['name'],
+          where: {
+            shopId: idShop,
+          },
+
+        },
+        {
+          model: db.User,
+          as: 'userData',
+          attributes: ['fullname', 'imageAvatar']
+        },
+        {
+          model: db.CommentImage,
+          as: 'commentImageData',
+          attributes: ['image']
+        }
+      ]
+    });
+    return res.status(200).send(RESPONSE('danh sách comment của gian hàng', 0, result));
   }
 }
 

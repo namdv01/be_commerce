@@ -19,6 +19,11 @@ module.exports = (sequelize, DataTypes) => {
         targetKey: 'id',
         as: 'itemData',
       });
+      Recomment.belongsTo(models.User, {
+        foreignKey: 'userId',
+        targetKey: 'id',
+        as: 'userData',
+      });
     }
   }
   Recomment.init(

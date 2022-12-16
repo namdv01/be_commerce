@@ -1,11 +1,11 @@
 const db = require('../models/index');
 const RESPONSE = require('../schema/response');
 const image = require('../service/image');
-const {sequelize} = require('../config/connectDB');
+const { sequelize } = require('../config/connectDB');
 
 const adminController = {
   async getUser(req, res) {
-    let {page, size, type} = req.body;
+    let { page, size, type } = req.body;
     const options = {};
     page = page ? parseInt(page) : parseInt(process.env.PAGE);
     size = size ? parseInt(size) : parseInt(process.env.SIZE);
@@ -18,8 +18,21 @@ const adminController = {
     });
     const users = await db.User.findAll({
       where: options,
+      attributes: {
+        exclude: ['password']
+      },
       limit: size,
-      offset: (page - 1) * size
+      offset: (page - 1) * size,
+      include: [
+        {
+          model: db.StoreToken,
+          as: 'tokenData',
+          where: {
+            type: 'login'
+          },
+          attributes: ['updatedAt']
+        }
+      ]
     });
     return res.status(200).send(RESPONSE('Danh sách người dùng', 0, {
       users,
@@ -31,25 +44,25 @@ const adminController = {
   async updateUser(req, res) {
     const trx = await sequelize.transaction();
     try {
-      const {idUser, limitCreateShop, fullname, phoneNumber, gender, address, imageAvatar} = req.body;
+      const { idUser, limitCreateShop, fullname, phoneNumber, gender, address, imageAvatar } = req.body;
       //check limitCreateShop
       const checkUser = await db.User.findOne({
         where: {
-          id:idUser
+          id: idUser
         }
       });
       if (!checkUser) {
         return res.status(200).send(RESPONSE('Người dùng không tồn tại', -1));
       }
       const options = {};
-      if(limitCreateShop) {
+      if (limitCreateShop) {
         options.limitCreateShop = checkUser.position === 'seller' ? limitCreateShop : 0;
       }
-      if(fullname) options.fullname = fullname;
-      if(phoneNumber) options.phoneNumber = phoneNumber;
-      if(gender) options.gender = gender;
-      if(address) options.address = address;
-      if(imageAvatar) {
+      if (fullname) options.fullname = fullname;
+      if (phoneNumber) options.phoneNumber = phoneNumber;
+      if (gender) options.gender = gender;
+      if (address) options.address = address;
+      if (imageAvatar) {
         if (!image.isImage(imageAvatar) || image.readSize(imageAvatar) > 2) {
           return res.status(200).send(RESPONSE('File ảnh không hợp lệ'));
         }
@@ -81,10 +94,10 @@ const adminController = {
       await trx.rollback();
       return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
-    
+
   },
   async getOrderOwnUser(req, res) {
-    const {idUser} = req.params;
+    const { idUser } = req.params;
     const result = await db.User.findOne({
       where: {
         id: idUser
@@ -94,14 +107,14 @@ const adminController = {
         {
           model: db.Order,
           as: 'orderData',
-          target: ['id', 'isPayment','methodPayment','deliver','timeOrder','addressReceive','phoneContact'],
+          target: ['id', 'isPayment', 'methodPayment', 'deliver', 'timeOrder', 'addressReceive', 'phoneContact'],
         }
       ]
     });
-    return res.status(200).send(RESPONSE('Danh sách đơn hàng', 0 , result))
+    return res.status(200).send(RESPONSE('Danh sách đơn hàng', 0, result))
   },
   async getDetailOrder(req, res) {
-    const {idOrder} = req.params;
+    const { idOrder } = req.params;
     const result = await db.Order.findOne({
       where: {
         id: idOrder,
@@ -109,14 +122,14 @@ const adminController = {
       include: {
         model: db.OrderItem,
         as: 'orderItemData',
-        target: ['itemId','quantity','price']
+        target: ['itemId', 'quantity', 'price']
       }
     });
     return res.status(200).send(RESPONSE('chi tiết đơn hàng', 0, result));
   },
   async notifyToUser(req, res) {
     //send notify to user by position or all
-    const {type, content} = req.body;
+    const { type, content } = req.body;
     const options = {};
     if (type === 'seller' || type === 'buyer' || type === 'admin') {
       options.type = type;
@@ -148,7 +161,7 @@ const adminController = {
   async toggleStatusShop(req, res) {
     const trx = await sequelize.transaction();
     try {
-      const {idShop, status} = req.body;
+      const { idShop, status } = req.body;
       const checkShop = await db.Shop.findOne({
         where: {
           id: idShop
@@ -181,5 +194,98 @@ const adminController = {
       return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
     }
   },
+  async getListOrder(req, res) {
+    let { page, size } = req.query;
+    page = page ? parseInt(page) : 4;
+    size = size ? parseInt(size) : parseInt(process.env.SIZE);
+    const options = [
+      {
+        model: db.OrderItem,
+        as: 'orderItemData',
+        attributes: ['itemId', 'quantity', 'price'],
+        include: [
+          {
+            model: db.Item,
+            as: 'itemData',
+            attributes: ['name'],
+            include: [
+              {
+                model: db.Shop,
+                as: 'shopData',
+                attributes: ['shopName']
+              }
+            ]
+          },
+
+        ]
+      },
+      {
+        model: db.User,
+        as: 'userData',
+        attributes: ['fullname'],
+        order: [
+          ['fullname', 'ASC']
+        ]
+      }
+    ];
+    const totalOrders = await db.Order.count({
+      // include: options
+    })
+    const result = await db.Order.findAll({
+      include: options,
+      limit: size,
+      offset: (page - 1) * size,
+      order: [
+        ['timeOrder', 'DESC'],
+      ]
+    });
+    return res.status(200).send(RESPONSE('Danh sách đơn hàng', 0, {
+      order: result,
+      page,
+      size,
+      totalOrders,
+      totalPage: Math.ceil(totalOrders / size),
+    }));
+  },
+  async getListComment(req, res) {
+    let { page, size } = req.query;
+    page = page ? parseInt(page) : 1;
+    size = size ? parseInt(size) : parseInt(process.env.SIZE);
+    const totalComment = await db.Recomment.count();
+    const result = await db.Recomment.findAll({
+      include: [
+        {
+          model: db.User,
+          as: 'userData',
+          attributes: ['fullname', 'imageAvatar']
+        },
+        {
+          model: db.CommentImage,
+          as: 'commentImageData',
+          attributes: ['image']
+        },
+        {
+          model: db.Item,
+          as: 'itemData',
+          attributes: ['name'],
+          include: [
+            {
+              model: db.Shop,
+              as: 'shopData',
+              attributes: ['shopName']
+            }
+          ]
+        }
+      ],
+      limit: size,
+      offset: (page - 1) * size
+    });
+    return res.status(200).send(RESPONSE('danh sách comment', 0, {
+      comments: result,
+      page,
+      size,
+      totalPage: Math.ceil(totalComment / size)
+    }))
+  }
 }
 module.exports = adminController;
