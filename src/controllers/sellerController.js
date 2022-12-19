@@ -152,83 +152,88 @@ const sellerController = {
     return res.status(200).send(RESPONSE('Xóa sản phẩm thành công', -1));
   },
   async updateItem(req, res) {
-    try {
-      const trx = new Transaction();
-      const { idItem } = req.params;
-      const { name, description, price, quantity, imagesAdd, imagesRemove } = req.body;
-      const options = {};
-      const checkOwn = await db.Item.findOne({
-        where: {
-          id: idItem,
-        },
-        required: false,
-        include: [
-          {
-            model: db.Shop,
-            as: 'shopData',
-            attributes: ['id'],
-            where: {
-              ownerId: req.userId
-            }
-          }
-        ]
-      });
+    // const trx = new Transaction();
+    // console.log(123456789);
+    // try {
+    //   const { idItem } = req.params;
+    //   const { name, description, price, quantity, imagesAdd, imagesRemove } = req.body;
+    //   const options = {};
 
-      if (!checkOwn.shopData.id) {
-        return res.status(200).send(RESPONSE('Không thể thao tác với sản phẩm', -1));
-      }
-      if (imagesAdd) {
-        imagesAdd.forEach((imageValue) => {
-          if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
-            return res.status(200).send(RESPONSE('File ảnh không hợp lệ', -1));
-          }
-        });
-        const newArr = imagesAdd.map((imageValue) => {
-          return {
-            itemId: idItem,
-            image: image.saveImage(imageValue),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }
-        });
-        await db.ItemImage.bulkCreate(newArr, {
-          transaction: trx
-        });
-      }
-      if (imagesRemove) {
-        await db.ItemImage.destroy({
-          where: {
-            image: {
-              [Op.in]: imagesRemove
-            }
-          },
-          transaction: trx
-        })
-      }
-      if (name) options.name = name;
-      if (description) options.description = description;
-      if (price) options.price = price;
-      if (quantity) options.quantity = quantity;
-      options.updatedAt = new Date();
+    //   const checkOwn = await db.Item.findOne({
+    //     where: {
+    //       id: idItem,
+    //     },
+    //     required: false,
+    //     include: [
+    //       {
+    //         model: db.Shop,
+    //         as: 'shopData',
+    //         attributes: ['id'],
+    //         where: {
+    //           ownerId: req.userId
+    //         }
+    //       }
+    //     ]
+    //   });
+    //   console.log(1);
 
-      await db.Item.update(options, {
-        where: {
-          id: idItem
-        },
-        transaction: trx,
-      });
-      await trx.commit();
-      if (imagesRemove) {
-        imagesRemove.forEach((imageValue) => {
-          image.deleteImage(imageValue);
-        })
-      }
-      return res.status(200).send(RESPONSE('Chỉnh sửa thông tin sản phẩm thành công', 0));
+    //   if (!checkOwn.shopData.id) {
+    //     return res.status(200).send(RESPONSE('Không thể thao tác với sản phẩm', -1));
+    //   }
+    //   if (imagesAdd) {
+    //     imagesAdd.forEach((imageValue) => {
+    //       if (!image.isImage(imageValue) || image.readSize(imageValue) > 2) {
+    //         return res.status(200).send(RESPONSE('File ảnh không hợp lệ', -1));
+    //       }
+    //     });
+    //     const newArr = imagesAdd.map((imageValue) => {
+    //       return {
+    //         itemId: idItem,
+    //         image: image.saveImage(imageValue),
+    //         createdAt: new Date(),
+    //         updatedAt: new Date(),
+    //       }
+    //     });
+    //     await db.ItemImage.bulkCreate(newArr, {
+    //       transaction: trx
+    //     });
+    //   }
+    //   if (imagesRemove) {
+    //     await db.ItemImage.destroy({
+    //       where: {
+    //         image: {
+    //           [Op.in]: imagesRemove
+    //         }
+    //       },
+    //       transaction: trx
+    //     })
+    //   }
+    //   if (name) options.name = name;
+    //   if (description) options.description = description;
+    //   if (price) options.price = price;
+    //   if (quantity) options.quantity = quantity;
+    //   options.updatedAt = new Date();
 
-    } catch (error) {
-      await trx.rollback();
-      return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
-    }
+    //   await db.Item.update(options, {
+    //     where: {
+    //       id: idItem
+    //     },
+    //     transaction: trx,
+    //   });
+    //   await trx.commit();
+    //   if (imagesRemove) {
+    //     imagesRemove.forEach((imageValue) => {
+    //       image.deleteImage(imageValue);
+    //     })
+    //   }
+    //   return res.status(200).send(RESPONSE('Chỉnh sửa thông tin sản phẩm thành công', 0));
+
+    // } catch (error) {
+    //   await trx.rollback();
+    //   return res.status(200).send(RESPONSE('có lỗi xảy ra', -1));
+    // }
+    const trx = new Transaction();
+    return res.status(200).send(RESPONSE('ok', 0));
 
   },
   async updateInfoShop(req, res) {
@@ -273,6 +278,9 @@ const sellerController = {
   async getListOrder(req, res) {
     const { idShop } = req.params;
     let result = await db.Order.findAll({
+      order: [
+        ['createdAt', 'desc']
+      ],
       include: [
         {
           model: db.OrderItem,
@@ -306,6 +314,19 @@ const sellerController = {
   async updateOrder(req, res) {
     const { isPayment, deliver, idOrder } = req.body;
     // const checkOwn = 
+    const option = {};
+    if (isPayment !== undefined) option.isPayment = isPayment;
+    if (deliver) option.deliver = deliver;
+    if (Object.keys(option).length !== 0) {
+      await db.Order.update({
+        ...option
+      }, {
+        where: {
+          id: idOrder
+        }
+      })
+    }
+    return res.status(200).send(RESPONSE('Cập nhật đơn hàng thành công', 0));
   },
   async addPromotion(req, res) {
     const { reducePercent, text, dayBegin, dayFinish } = req.body;

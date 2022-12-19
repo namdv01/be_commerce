@@ -138,6 +138,7 @@ const userController = {
     return res.status(200).send(RESPONSE('đăng xuất thành công', 0));
   },
   async getInfo(req, res) {
+    console.log('ben trong');
     const checkUser = await db.User.findOne({
       where: {
         email: req.userEmail,
@@ -473,7 +474,7 @@ const userController = {
       const newOrder = await db.Order.create({
         userId: req.userId,
         isPayment,
-        methodPayment,
+        methodPayment, //paypal or afterReveice :)
         deliver: 'none',
         addressReceive,
         timeOrder: new Date(),
@@ -1021,6 +1022,7 @@ const userController = {
     } catch (error) {
       await trx.rollback();
     }
+    req.clearCookie('order');
 
     /**orders = [
      * {

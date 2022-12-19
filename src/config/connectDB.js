@@ -1,10 +1,10 @@
 const { Sequelize } = require('sequelize');
 
 // Option 3: Passing parameters separately (other dialects)
-const {DB_DATABASE: database, DB_USERNAME: username,DB_PASSWORD: password,DB_HOST: host,DB_DIALECT: dialect,DB_PORT: port} = process.env;
+const { DB_DATABASE: database, DB_USERNAME: username, DB_PASSWORD: password, DB_HOST: host, DB_DIALECT: dialect, DB_PORT: port } = process.env;
 const sequelize = new Sequelize(database, username, password, {
   host,
-  dialect,
+  dialect: dialect || 'mysql',
   port,
 });
 
@@ -17,4 +17,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = {sequelize, connectDB};
+module.exports = { sequelize, connectDB };

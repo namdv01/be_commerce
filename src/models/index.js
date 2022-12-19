@@ -18,7 +18,7 @@ if (config.use_env_variable) {
     config.password,
     {
       host: config.host,
-      dialect: config.dialect,
+      dialect: config.dialect || 'mysql',
       port: config.port,
     }
   );

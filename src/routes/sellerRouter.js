@@ -18,5 +18,6 @@ router.post('/create_shop', middleware.verifyToken, middleware.verifySeller, sel
 router.post('/update_shop', middleware.verifyToken, middleware.verifySeller, sellerController.updateShop);
 router.get('/list_order/:idShop', middleware.verifyToken, middleware.verifySeller, sellerController.getListOrder);
 router.get('/list_comment/:idShop', middleware.verifyToken, middleware.verifySeller, sellerController.getListComment);
+router.post('/update_order', middleware.verifyToken, middleware.verifySeller, sellerController.updateOrder);
 
 module.exports = router;

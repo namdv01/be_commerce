@@ -75,6 +75,7 @@ const middleware = {
             transaction: trx
           })
           await trx.commit();
+          console.log('ben ngoai');
         } catch (error) {
           await trx.rollback();
         }
